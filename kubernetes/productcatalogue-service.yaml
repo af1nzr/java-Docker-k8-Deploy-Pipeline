@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
       - name: productcatalogue
-        image: thetips4you/productcatalogue:latest
+        image: ghcr.io/af1nzr/productcatalogue:latest
         ports:
         - containerPort: 8020
         livenessProbe:
@@ -40,3 +40,5 @@ spec:
             port: 8025
           initialDelaySeconds: 30
           timeoutSeconds: 1
+          imagePullSecrets: 
+          - name: mysecret
