@@ -1,0 +1,86 @@
+name: java-kubernetes-pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-java:
+    name: Build & Deploy Java App
+    runs-on: ubuntu-latest
+
+    steps:
+      # ✅ Checkout repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # ✅ Setup Java + Maven cache
+      - name: Set up JDK 11 with Maven cache
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # ✅ Build Java project
+      - name: Build Java project
+        run: mvn clean install -B
+
+      # ✅ Login to GHCR (Personal Access Token stored in GHCR_PAT)
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # ✅ Build Docker images
+      - name: Build Docker images
+        run: |
+          docker build -t ghcr.io/af1nzr/productcatalogue:latest -f docker-Java-kubernetes-project/Dockerfile.productcatalogue .
+          docker build -t ghcr.io/af1nzr/shopfront:latest -f docker-Java-kubernetes-project/Dockerfile.shopfront .
+          docker build -t ghcr.io/af1nzr/stockmanager:latest -f docker-Java-kubernetes-project/Dockerfile.stockmanager .
+
+      # ✅ Push Docker images
+      - name: Push Docker images
+        run: |
+          docker push ghcr.io/af1nzr/productcatalogue:latest
+          docker push ghcr.io/af1nzr/shopfront:latest
+          docker push ghcr.io/af1nzr/stockmanager:latest
+
+      # ✅ Setup kubeconfig from secret
+      - name: Set up kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+          mkdir -p ~/.kube
+          mv kubeconfig.yaml ~/.kube/config
+
+      # ✅ Create or update GHCR secret in Kubernetes (so cluster can pull private images)
+      - name: Create GHCR secret in Kubernetes
+        run: |
+          kubectl delete secret ghcr-secret --ignore-not-found
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=af1nzr \
+            --docker-password=${{ secrets.GHCR_PAT }} \
+            --docker-email=you@example.com
+
+      # ✅ Deploy to Kubernetes
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/productcatalogue-service.yaml
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/shopfront-service.yaml
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/stockmanager-service.yaml
+
+      # ✅ Rollout & verify deployments
+      - name: Wait for deployments
+        run: |
+          kubectl rollout status deployment/productcatalogue --timeout=120s
+          kubectl rollout status deployment/shopfront --timeout=120s
+          kubectl rollout status deployment/stockmanager --timeout=120s
+
+      # ✅ Quick verification
+      - name: Verify deployments & services
+        run: |
+          kubectl get pods -l app=productcatalogue
+          kubectl get pods -l app=shopfront
+          kubectl get pods -l app=stockmanager
+          kubectl get services productcatalogue shopfront stockmanager
