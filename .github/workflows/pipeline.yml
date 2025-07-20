@@ -12,11 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ✅ Checkout repo
+      # ✅ 1. Checkout repo
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # ✅ Setup Java + Maven cache
+      # ✅ 2. Setup Java + Maven cache
       - name: Set up JDK 11 with Maven cache
         uses: actions/setup-java@v3
         with:
@@ -24,59 +24,55 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # ✅ Build ProductCatalogue JAR
+      # ✅ 3. Build ProductCatalogue JAR
       - name: Build ProductCatalogue
-        working-directory: docker-Java-kubernetes-project/productcatalogue
-        run: mvn clean install -B
+        working-directory: productcatalogue
+        run: mvn clean package -DskipTests
 
-      # ✅ Build Shopfront JAR
+      # ✅ 4. Build Shopfront JAR
       - name: Build Shopfront
-        working-directory: docker-Java-kubernetes-project/shopfront
-        run: mvn clean install -B
+        working-directory: shopfront
+        run: mvn clean package -DskipTests
 
-      # ✅ Build StockManager JAR
+      # ✅ 5. Build StockManager JAR
       - name: Build StockManager
-        working-directory: docker-Java-kubernetes-project/stockmanager
-        run: mvn clean install -B
+        working-directory: stockmanager
+        run: mvn clean package -DskipTests
 
-      # ✅ Log in to GitHub Container Registry
+      # ✅ 6. Log in to GitHub Container Registry (GHCR_PAT secret required)
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # ✅ Build Docker images (build from each folder!)
-      - name: Build ProductCatalogue Docker image
+      # ✅ 7. Build Docker images (build each service from its own folder!)
+      - name: Build Docker images
         run: |
           docker build \
             -t ghcr.io/af1nzr/productcatalogue:latest \
-            docker-Java-kubernetes-project/productcatalogue
-
-      - name: Build Shopfront Docker image
-        run: |
+            productcatalogue
+          
           docker build \
             -t ghcr.io/af1nzr/shopfront:latest \
-            docker-Java-kubernetes-project/shopfront
-
-      - name: Build StockManager Docker image
-        run: |
+            shopfront
+          
           docker build \
             -t ghcr.io/af1nzr/stockmanager:latest \
-            docker-Java-kubernetes-project/stockmanager
+            stockmanager
 
-      # ✅ Push Docker images
+      # ✅ 8. Push Docker images to GHCR
       - name: Push Docker images
         run: |
           docker push ghcr.io/af1nzr/productcatalogue:latest
           docker push ghcr.io/af1nzr/shopfront:latest
           docker push ghcr.io/af1nzr/stockmanager:latest
 
-      # ✅ Setup kubeconfig
+      # ✅ 9. Setup kubeconfig from secret
       - name: Set up kubeconfig
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
 
-      # ✅ Create GHCR secret in Kubernetes (to pull private images)
+      # ✅ 10. Create/Update Kubernetes image pull secret
       - name: Create GHCR secret in Kubernetes
         run: |
           kubectl delete secret ghcr-secret --ignore-not-found
@@ -86,24 +82,24 @@ jobs:
             --docker-password=${{ secrets.GHCR_PAT }} \
             --docker-email=you@example.com
 
-      # ✅ Deploy to Kubernetes cluster
+      # ✅ 11. Deploy Kubernetes services
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/productcatalogue-service.yaml
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/shopfront-service.yaml
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/stockmanager-service.yaml
+          kubectl apply -f kubernetes/productcatalogue-service.yaml
+          kubectl apply -f kubernetes/shopfront-service.yaml
+          kubectl apply -f kubernetes/stockmanager-service.yaml
 
-      # ✅ Wait for deployments to roll out
+      # ✅ 12. Wait for deployments rollout
       - name: Wait for deployments
         run: |
           kubectl rollout status deployment/productcatalogue --timeout=120s
           kubectl rollout status deployment/shopfront --timeout=120s
           kubectl rollout status deployment/stockmanager --timeout=120s
 
-      # ✅ Verify pods & services
+      # ✅ 13. Verify pods & services
       - name: Verify deployments & services
         run: |
-          kubectl get pods -l app=productcatalogue
-          kubectl get pods -l app=shopfront
-          kubectl get pods -l app=stockmanager
-          kubectl get services productcatalogue shopfront stockmanager
+          echo "Pods:"
+          kubectl get pods -o wide
+          echo "Services:"
+          kubectl get svc
