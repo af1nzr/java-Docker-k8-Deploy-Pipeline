@@ -24,9 +24,20 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # ✅ Build Java project
-      - name: Build Java project
-        run: mvn clean install -B
+      - name: Build ProductCatalogue
+        run: |
+          cd docker-Java-kubernetes-project/productcatalogue
+          mvn clean install -B
+
+      - name: Build Shopfront
+        run: |
+          cd docker-Java-kubernetes-project/shopfront
+          mvn clean install -B
+      
+      - name: Build StockManager
+        run: |
+          cd docker-Java-kubernetes-project/stockmanager
+          mvn clean install -B
 
       # ✅ Login to GHCR (Personal Access Token stored in GHCR_PAT)
       - name: Log in to GitHub Container Registry
