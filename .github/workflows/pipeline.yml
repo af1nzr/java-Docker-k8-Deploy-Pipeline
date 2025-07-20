@@ -26,17 +26,17 @@ jobs:
 
       # ✅ Build ProductCatalogue
       - name: Build ProductCatalogue
-        working-directory: docker-Java-kubernetes-project/productcatalogue
+        working-directory: productcatalogue
         run: mvn clean install -B
 
       # ✅ Build Shopfront
       - name: Build Shopfront
-        working-directory: docker-Java-kubernetes-project/shopfront
+        working-directory: shopfront
         run: mvn clean install -B
-      
+
       # ✅ Build StockManager
       - name: Build StockManager
-        working-directory: docker-Java-kubernetes-project/stockmanager
+        working-directory: stockmanager
         run: mvn clean install -B
 
       # ✅ Log in to GitHub Container Registry (use GHCR_PAT secret)
@@ -46,9 +46,9 @@ jobs:
       # ✅ Build Docker images for each service
       - name: Build Docker images
         run: |
-          docker build -t ghcr.io/af1nzr/productcatalogue:latest -f docker-Java-kubernetes-project/Dockerfile.productcatalogue .
-          docker build -t ghcr.io/af1nzr/shopfront:latest -f docker-Java-kubernetes-project/Dockerfile.shopfront .
-          docker build -t ghcr.io/af1nzr/stockmanager:latest -f docker-Java-kubernetes-project/Dockerfile.stockmanager .
+          docker build -t ghcr.io/af1nzr/productcatalogue:latest -f productcatalogue/Dockerfile .
+          docker build -t ghcr.io/af1nzr/shopfront:latest -f shopfront/Dockerfile .
+          docker build -t ghcr.io/af1nzr/stockmanager:latest -f stockmanager/Dockerfile .
 
       # ✅ Push Docker images to GitHub Container Registry
       - name: Push Docker images
@@ -77,9 +77,9 @@ jobs:
       # ✅ Deploy services to Kubernetes cluster
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/productcatalogue-service.yaml
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/shopfront-service.yaml
-          kubectl apply -f docker-Java-kubernetes-project/kubernetes/stockmanager-service.yaml
+          kubectl apply -f kubernetes/productcatalogue-service.yaml
+          kubectl apply -f kubernetes/shopfront-service.yaml
+          kubectl apply -f kubernetes/stockmanager-service.yaml
 
       # ✅ Wait for deployments to roll out
       - name: Wait for deployments
