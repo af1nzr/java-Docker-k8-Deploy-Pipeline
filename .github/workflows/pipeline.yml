@@ -24,47 +24,59 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # ✅ Build ProductCatalogue
+      # ✅ Build ProductCatalogue JAR
       - name: Build ProductCatalogue
-        working-directory: productcatalogue
+        working-directory: docker-Java-kubernetes-project/productcatalogue
         run: mvn clean install -B
 
-      # ✅ Build Shopfront
+      # ✅ Build Shopfront JAR
       - name: Build Shopfront
-        working-directory: shopfront
+        working-directory: docker-Java-kubernetes-project/shopfront
         run: mvn clean install -B
 
-      # ✅ Build StockManager
+      # ✅ Build StockManager JAR
       - name: Build StockManager
-        working-directory: stockmanager
+        working-directory: docker-Java-kubernetes-project/stockmanager
         run: mvn clean install -B
 
-      # ✅ Log in to GitHub Container Registry (use GHCR_PAT secret)
+      # ✅ Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # ✅ Build Docker images for each service
-      - name: Build Docker images
+      # ✅ Build Docker images (build from each folder!)
+      - name: Build ProductCatalogue Docker image
         run: |
-          docker build -t ghcr.io/af1nzr/productcatalogue:latest -f productcatalogue/Dockerfile .
-          docker build -t ghcr.io/af1nzr/shopfront:latest -f shopfront/Dockerfile .
-          docker build -t ghcr.io/af1nzr/stockmanager:latest -f stockmanager/Dockerfile .
+          docker build \
+            -t ghcr.io/af1nzr/productcatalogue:latest \
+            docker-Java-kubernetes-project/productcatalogue
 
-      # ✅ Push Docker images to GitHub Container Registry
+      - name: Build Shopfront Docker image
+        run: |
+          docker build \
+            -t ghcr.io/af1nzr/shopfront:latest \
+            docker-Java-kubernetes-project/shopfront
+
+      - name: Build StockManager Docker image
+        run: |
+          docker build \
+            -t ghcr.io/af1nzr/stockmanager:latest \
+            docker-Java-kubernetes-project/stockmanager
+
+      # ✅ Push Docker images
       - name: Push Docker images
         run: |
           docker push ghcr.io/af1nzr/productcatalogue:latest
           docker push ghcr.io/af1nzr/shopfront:latest
           docker push ghcr.io/af1nzr/stockmanager:latest
 
-      # ✅ Setup kubeconfig (secret stored in GitHub Actions)
+      # ✅ Setup kubeconfig
       - name: Set up kubeconfig
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
 
-      # ✅ Create/update Kubernetes secret for pulling GHCR private images
+      # ✅ Create GHCR secret in Kubernetes (to pull private images)
       - name: Create GHCR secret in Kubernetes
         run: |
           kubectl delete secret ghcr-secret --ignore-not-found
@@ -74,12 +86,12 @@ jobs:
             --docker-password=${{ secrets.GHCR_PAT }} \
             --docker-email=you@example.com
 
-      # ✅ Deploy services to Kubernetes cluster
+      # ✅ Deploy to Kubernetes cluster
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f kubernetes/productcatalogue-service.yaml
-          kubectl apply -f kubernetes/shopfront-service.yaml
-          kubectl apply -f kubernetes/stockmanager-service.yaml
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/productcatalogue-service.yaml
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/shopfront-service.yaml
+          kubectl apply -f docker-Java-kubernetes-project/kubernetes/stockmanager-service.yaml
 
       # ✅ Wait for deployments to roll out
       - name: Wait for deployments
