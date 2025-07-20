@@ -71,35 +71,3 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
           mkdir -p ~/.kube
           mv kubeconfig.yaml ~/.kube/config
-
-      # ✅ 10. Create/Update Kubernetes image pull secret
-      - name: Create GHCR secret in Kubernetes
-        run: |
-          kubectl delete secret ghcr-secret --ignore-not-found
-          kubectl create secret docker-registry ghcr-secret \
-            --docker-server=ghcr.io \
-            --docker-username=af1nzr \
-            --docker-password=${{ secrets.GHCR_PAT }} \
-            --docker-email=you@example.com
-
-      # ✅ 11. Deploy Kubernetes services
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f kubernetes/productcatalogue-service.yaml
-          kubectl apply -f kubernetes/shopfront-service.yaml
-          kubectl apply -f kubernetes/stockmanager-service.yaml
-
-      # ✅ 12. Wait for deployments rollout
-      - name: Wait for deployments
-        run: |
-          kubectl rollout status deployment/productcatalogue --timeout=120s
-          kubectl rollout status deployment/shopfront --timeout=120s
-          kubectl rollout status deployment/stockmanager --timeout=120s
-
-      # ✅ 13. Verify pods & services
-      - name: Verify deployments & services
-        run: |
-          echo "Pods:"
-          kubectl get pods -o wide
-          echo "Services:"
-          kubectl get svc
